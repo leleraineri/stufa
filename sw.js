@@ -1,5 +1,5 @@
 // Tiene in cache solo la "scocca" dell'app: i dati della stufa arrivano sempre dal cloud.
-const CACHE = "stufa-v1";
+const CACHE = "stufa-v2";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
