@@ -18,8 +18,9 @@
     --ok: #4cc38a; --warn: #f2b33d; --bad: #ff5a4f; --off: #6f5f54;
     --radius: 20px;
   }
-  /* touch-action: manipulation toglie lo zoom da doppio tocco quando si premono i pulsanti in fretta */
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  /* solo scorrimento: niente zoom a due dita né da doppio tocco (manipulation lascerebbe il pizzico) */
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: pan-x pan-y; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   button { -webkit-user-select: none; user-select: none; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
@@ -159,6 +160,7 @@
     <button id="refreshBtn">↻ Aggiorna ora</button>
     <button id="resetAlarmBtn">⚠︎ Reset allarme</button>
     <button id="logoutBtn" class="danger">Esci dall'account</button>
+    <div class="note" style="text-align:center;margin-top:4px" id="version"></div>
   </section>
 
   <div id="viewControls">
@@ -287,6 +289,7 @@ const POOL = new AmazonCognitoIdentity.CognitoUserPool({ UserPoolId: "eu-central
 // L'indirizzo "classico" risponde dal browser; quello nuovo (the-mind-api.edilkamin.com) al momento no.
 const API = "https://fxtj7xkgc6.execute-api.eu-central-1.amazonaws.com/prod/";
 const POLL_MS = 8000;
+const VERSION = "4";   // da aumentare a ogni pubblicazione insieme a CACHE in sw.js
 const PHASES = { 0: "Spenta", 1: "In accensione", 2: "Accesa", 3: "In spegnimento", 4: "Raffreddamento", 5: "Allarme", 6: "Pulizia finale" };
 const $ = id => document.getElementById(id);
 
@@ -804,9 +807,15 @@ function showLogin() {
 }
 function showApp() { $("login").classList.add("hidden"); $("app").classList.remove("hidden"); startPolling(); }
 
-// iOS ignora user-scalable=no: blocchiamo noi il pizzico a due dita (eventi gesture di WebKit e touchmove multi-dito)
-["gesturestart", "gesturechange", "gestureend"].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
-document.addEventListener("touchmove", e => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+// iOS ignora user-scalable=no: blocchiamo noi il pizzico a due dita (eventi gesture di WebKit e tocchi multi-dito)
+["gesturestart", "gesturechange", "gestureend"].forEach(t => {
+  document.addEventListener(t, e => e.preventDefault(), { passive: false });
+  window.addEventListener(t, e => e.preventDefault(), { passive: false });
+});
+["touchstart", "touchmove"].forEach(t => document.addEventListener(t, e => {
+  if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault();
+}, { passive: false }));
+$("version").textContent = "Versione " + VERSION;
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 currentUser() && mac() ? showApp() : showLogin();

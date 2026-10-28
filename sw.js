@@ -1,5 +1,5 @@
 // Tiene in cache solo la "scocca" dell'app: i dati della stufa arrivano sempre dal cloud.
-const CACHE = "stufa-v3";
+const CACHE = "stufa-v4";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -15,8 +15,8 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
-  // rete prima, cache solo se offline
-  e.respondWith(fetch(e.request)
+  // rete prima (saltando la cache HTTP di 10 minuti di GitHub Pages), cache solo se offline
+  e.respondWith(fetch(e.request, { cache: "no-cache" })
     .then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
     .catch(() => caches.match(e.request)));
 });
