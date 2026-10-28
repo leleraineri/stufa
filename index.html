@@ -804,6 +804,10 @@ function showLogin() {
 }
 function showApp() { $("login").classList.add("hidden"); $("app").classList.remove("hidden"); startPolling(); }
 
+// iOS ignora user-scalable=no: blocchiamo noi il pizzico a due dita (eventi gesture di WebKit e touchmove multi-dito)
+["gesturestart", "gesturechange", "gestureend"].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+document.addEventListener("touchmove", e => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 currentUser() && mac() ? showApp() : showLogin();
 </script>
