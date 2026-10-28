@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b1410">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stufa">
+<title>Stufa</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #1b1410; --card: #261c16; --card2: #30241c; --line: #3d2e24;
+    --text: #f6ece4; --muted: #b59f8f; --accent: #ff7a1a; --accent2: #ffb347;
+    --ok: #4cc38a; --warn: #f2b33d; --bad: #ff5a4f; --off: #6f5f54;
+    --radius: 20px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
+  body { padding: env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom)); max-width: 520px; margin: 0 auto; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  .hidden { display: none !important; }
+
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 6px; }
+  header h1 { font-size: 22px; margin: 0; letter-spacing: .2px; }
+  .sync { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .dot.wait { background: var(--warn); animation: pulse 1s infinite; }
+  .dot.err { background: var(--bad); }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .icon-btn { width: 38px; height: 38px; border-radius: 12px; background: var(--card); display: grid; place-items: center; }
+
+  .card { background: var(--card); border-radius: var(--radius); padding: 18px; margin-top: 14px; }
+  .label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
+
+  /* Hero */
+  .hero { text-align: center; padding: 22px 18px 20px; background: radial-gradient(120% 90% at 50% 0%, #3a2416 0%, var(--card) 70%); }
+  .flame { width: 92px; height: 92px; margin: 0 auto 8px; transition: filter .4s, opacity .4s; }
+  .hero.off .flame { filter: grayscale(1); opacity: .35; }
+  .hero.on .flame { animation: flick 1.6s ease-in-out infinite; }
+  @keyframes flick { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05) translateY(-2px); } }
+  .phase { font-size: 24px; font-weight: 700; }
+  .room { color: var(--muted); margin-top: 2px; }
+  .power-btn { margin-top: 18px; width: 100%; padding: 16px; border-radius: 16px; font-size: 18px; font-weight: 700;
+    background: var(--accent); color: #1b1410; transition: background .2s; }
+  .power-btn.is-on { background: var(--card2); color: var(--text); border: 1px solid var(--line); }
+
+  /* Temperature */
+  .temp-row { display: flex; align-items: center; justify-content: space-between; }
+  .round { width: 56px; height: 56px; border-radius: 50%; background: var(--card2); font-size: 28px; line-height: 1; }
+  .round:active { background: var(--line); }
+  .temp-val { font-size: 46px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .temp-val small { font-size: 22px; color: var(--muted); font-weight: 600; }
+
+  /* Segmented */
+  .seg { display: grid; gap: 8px; }
+  .seg button { padding: 12px 0; border-radius: 12px; background: var(--card2); font-weight: 600; }
+  .seg button.sel { background: var(--accent); color: #1b1410; }
+  .fan + .fan { margin-top: 14px; }
+  .fan-name { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+
+  /* Toggles */
+  .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .toggle { display: flex; align-items: center; justify-content: space-between; padding: 14px; border-radius: 14px; background: var(--card2); text-align: left; }
+  .toggle .sw { width: 42px; height: 26px; border-radius: 13px; background: var(--off); position: relative; flex: none; transition: background .2s; }
+  .toggle .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .toggle.on .sw { background: var(--accent); }
+  .toggle.on .sw::after { transform: translateX(16px); }
+  .toggle small { display: block; color: var(--muted); font-size: 12px; }
+
+  /* Info grid */
+  .info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tile { background: var(--card2); border-radius: 14px; padding: 12px 14px; }
+  .tile b { display: block; font-size: 20px; margin-top: 2px; }
+  .tile span { font-size: 13px; color: var(--muted); }
+  .tile.warn b { color: var(--warn); }
+  .tile.bad b { color: var(--bad); }
+  .alarms { margin: 10px 0 0; padding: 0; list-style: none; font-size: 14px; color: var(--muted); }
+  .alarms li { padding: 6px 0; border-top: 1px solid var(--line); }
+
+  /* Login */
+  .login h2 { margin: 30px 0 6px; font-size: 26px; }
+  .login p { color: var(--muted); margin: 0 0 18px; }
+  .field { display: block; margin-bottom: 12px; }
+  .field span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .field input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: 16px; }
+  .primary { width: 100%; padding: 15px; border-radius: 14px; background: var(--accent); color: #1b1410; font-weight: 700; font-size: 17px; margin-top: 6px; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+  .error { color: var(--bad); font-size: 14px; min-height: 20px; margin-top: 10px; }
+
+  /* Toast */
+  #toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(120px);
+    background: #000c; color: #fff; padding: 12px 18px; border-radius: 14px; font-size: 14px; max-width: 90vw; transition: transform .25s; z-index: 9; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.bad { background: #8e1f19ee; }
+
+  .sub { font-size: 13px; color: var(--muted); margin: 16px 0 8px; }
+  .bar { display: grid; grid-template-columns: 34px 1fr 52px; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 14px; }
+  .bar .track { height: 10px; border-radius: 5px; background: var(--card2); overflow: hidden; }
+  .bar .fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .bar .h { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .diary { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+  .diary li { display: flex; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--line); }
+  .diary li span:last-child { color: var(--muted); }
+
+  .badge { display: inline-block; margin-top: 10px; padding: 6px 12px; border-radius: 999px; background: #f2b33d22; color: var(--warn); font-size: 13px; font-weight: 600; }
+  .badge.bad { background: #ff5a4f22; color: var(--bad); }
+  .log { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+  .log .day { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; padding: 12px 0 4px; }
+  .log .ev { display: grid; grid-template-columns: 46px 22px 1fr; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); align-items: start; }
+  .log .ev time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .log .ev small { display: block; color: var(--muted); font-size: 12px; }
+
+  .menu { display: flex; flex-direction: column; gap: 8px; }
+  .menu button { padding: 14px; border-radius: 12px; background: var(--card2); text-align: left; }
+  .menu .danger { color: var(--bad); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<section id="login" class="login hidden">
+  <h2>🔥 Stufa</h2>
+  <p>Accedi con l'account dell'app <b>The Mind</b> di Edilkamin.</p>
+  <form id="loginForm" autocomplete="on">
+    <label class="field"><span>Email</span><input id="email" type="email" autocomplete="username" required></label>
+    <label class="field"><span>Password</span><input id="password" type="password" autocomplete="current-password" required></label>
+    <label class="field"><span>Indirizzo MAC della stufa</span><input id="mac" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="aa:bb:cc:dd:ee:ff" required></label>
+    <button class="primary" id="loginBtn" type="submit">Accedi</button>
+    <div class="error" id="loginError"></div>
+  </form>
+  <p class="note">La password non viene salvata: resta solo il "gettone" di accesso su questo telefono, come fanno le app. App non ufficiale, usa il cloud Edilkamin.</p>
+</section>
+
+<!-- APP -->
+<main id="app" class="hidden">
+  <header>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="icon-btn hidden" id="backBtn" aria-label="Indietro">‹</button>
+      <h1 id="title">Stufa</h1>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div class="sync"><span class="dot wait" id="syncDot"></span><span id="syncText">Collegamento…</span></div>
+      <button class="icon-btn" id="statusBtn" aria-label="Stato e storico">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      </button>
+      <button class="icon-btn" id="menuBtn" aria-label="Menu">⋯</button>
+    </div>
+  </header>
+
+  <section class="card menu hidden" id="menu">
+    <button id="refreshBtn">↻ Aggiorna ora</button>
+    <button id="resetAlarmBtn">⚠︎ Reset allarme</button>
+    <button id="logoutBtn" class="danger">Esci dall'account</button>
+  </section>
+
+  <div id="viewControls">
+  <section class="card hero off" id="hero">
+    <svg class="flame" viewBox="0 0 64 64" aria-hidden="true">
+      <defs><linearGradient id="g" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff5a1a"/><stop offset="1" stop-color="#ffc24a"/></linearGradient></defs>
+      <path fill="url(#g)" d="M32 4c2 10-6 14-6 22 0 3 2 6 5 6-1-6 5-9 5-15 7 6 13 14 13 23 0 11-8 20-17 20S15 51 15 40c0-14 15-22 17-36z"/>
+      <path fill="#fff3" d="M32 34c4 4 7 8 7 13 0 5-3 9-7 9s-7-4-7-9c0-5 4-8 7-13z"/>
+    </svg>
+    <div class="phase" id="phase">—</div>
+    <div class="room" id="room">Stanza —</div>
+    <div class="badge hidden" id="heroWarn"></div>
+    <button class="power-btn" id="powerBtn">Accendi</button>
+  </section>
+
+  <section class="card">
+    <div class="label">Temperatura desiderata</div>
+    <div class="temp-row">
+      <button class="round" id="tempDown" aria-label="Meno">−</button>
+      <div class="temp-val"><span id="target">—</span><small>°C</small></div>
+      <button class="round" id="tempUp" aria-label="Più">+</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="label">Potenza</div>
+    <div class="seg" id="powerSeg" style="grid-template-columns:repeat(5,1fr)"></div>
+  </section>
+
+  <section class="card" id="fansCard">
+    <div class="label">Ventilazione</div>
+    <div id="fans"></div>
+  </section>
+
+  <section class="card">
+    <div class="label">Modalità</div>
+    <div class="toggles">
+      <button class="toggle" data-cmd="relax_mode" data-key="relax"><div>Relax<small>silenziosa</small></div><span class="sw"></span></button>
+      <button class="toggle" data-cmd="chrono_mode" data-key="chrono"><div>Chrono<small>programma orario</small></div><span class="sw"></span></button>
+      <button class="toggle" data-cmd="standby_mode" data-key="standby"><div>Standby<small>auto spegnimento</small></div><span class="sw"></span></button>
+      <button class="toggle" data-cmd="airkare_function" data-key="airkare"><div>Airkare<small>purificazione</small></div><span class="sw"></span></button>
+    </div>
+  </section>
+  </div>
+
+  <div id="viewStatus" class="hidden">
+  <section class="card">
+    <div class="label">Stato</div>
+    <div class="info">
+      <div class="tile" id="pelletTile"><span>Pellet</span><b id="pellet">—</b></div>
+      <div class="tile"><span>Autonomia stimata</span><b id="autonomy">—</b></div>
+      <div class="tile"><span>Potenza attuale</span><b id="actualPower">—</b></div>
+      <div class="tile" id="alarmTile"><span>Allarmi</span><b id="alarmCount">—</b></div>
+    </div>
+    <ul class="alarms" id="alarms"></ul>
+    <p class="note" style="margin-top:8px">La stufa ha solo un sensore di riserva: "Pellet OK / In riserva" è il dato affidabile, l'autonomia è una stima della stufa.</p>
+  </section>
+
+  <section class="card">
+    <div class="label">Registro attività</div>
+    <div class="seg" id="logFilter" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">
+      <button data-f="all" class="sel">Tutto</button>
+      <button data-f="power">Accensioni</button>
+      <button data-f="cmd">Comandi</button>
+    </div>
+    <ul class="log" id="eventLog"></ul>
+    <p class="note" style="margin-top:8px">Accensioni, spegnimenti e cambi (anche dal telecomando) con l'orario in cui l'app li ha visti, più tutti i comandi inviati dall'app. Gli eventi avvenuti ad app chiusa compaiono alla riapertura, con l'orario della lettura.</p>
+  </section>
+
+  <section class="card">
+    <div class="label">Consumo pellet</div>
+    <button class="primary" id="loadBtn" style="margin-top:0">＋ Carico pellet</button>
+    <form id="loadForm" class="hidden" style="margin-top:14px">
+      <div class="seg" style="grid-template-columns:repeat(4,1fr)" id="bagSeg">
+        <button type="button" data-bags="0.5">½ sacco</button>
+        <button type="button" data-bags="1">1 sacco</button>
+        <button type="button" data-bags="2">2 sacchi</button>
+        <button type="button" data-bags="3">3 sacchi</button>
+      </div>
+      <div class="info" style="margin-top:12px">
+        <label class="field" style="margin:0"><span>Kg caricati</span><input id="loadKg" type="number" inputmode="decimal" step="0.5" min="0.5" required></label>
+        <label class="field" style="margin:0"><span>Kg per sacco</span><input id="bagKg" type="number" inputmode="decimal" step="0.5" min="1"></label>
+        <label class="field" style="margin:0"><span>Prezzo sacco € (facoltativo)</span><input id="bagPrice" type="number" inputmode="decimal" step="0.01" min="0"></label>
+        <label class="field" style="margin:0"><span>Quando</span><input id="loadWhen" type="datetime-local"></label>
+      </div>
+      <div class="info" style="margin-top:12px">
+        <button type="button" class="tile" id="loadCancel" style="text-align:center">Annulla</button>
+        <button type="submit" class="tile" style="text-align:center;background:var(--accent);color:#1b1410;font-weight:700">Salva carico</button>
+      </div>
+    </form>
+    <div class="info" style="margin-top:14px">
+      <div class="tile"><span>Consumo medio</span><b id="pRate">—</b></div>
+      <div class="tile" id="pLeftTile"><span>Rimasto (stima)</span><b id="pLeft">—</b></div>
+      <div class="tile"><span>Caricato questo mese</span><b id="pMonth">—</b></div>
+      <div class="tile"><span>Stagione</span><b id="pSeason">—</b></div>
+    </div>
+    <div class="sub">Ultimi carichi</div>
+    <ul class="diary" id="loads"></ul>
+    <p class="note" style="margin-top:8px">Il consumo si calcola tra un carico e l'altro usando le ore di funzionamento della stufa: servono almeno due carichi. I carichi restano salvati su questo telefono.</p>
+  </section>
+
+  <section class="card">
+    <div class="label">Storico accensioni</div>
+    <div class="info">
+      <div class="tile"><span>Accensioni totali</span><b id="powerOns">—</b></div>
+      <div class="tile"><span>Ore di funzionamento</span><b id="totalHours">—</b></div>
+      <div class="tile" id="serviceTile"><span>Manutenzione tra</span><b id="service">—</b></div>
+      <div class="tile"><span>Interruzioni corrente</span><b id="blackouts">—</b></div>
+    </div>
+    <div class="sub">Ore per livello di potenza</div>
+    <div id="levelBars"></div>
+    <div class="sub">Diario</div>
+    <ul class="diary" id="diary"></ul>
+    <p class="note" style="margin-top:8px">Il cloud Edilkamin conserva solo i totali: il diario lo costruisce l'app confrontando i contatori ogni volta che la apri, quindi riporta accensioni e ore per giorno, non l'orario esatto.</p>
+  </section>
+
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
+<script>
+"use strict";
+const POOL = new AmazonCognitoIdentity.CognitoUserPool({ UserPoolId: "eu-central-1_BYmQ2VBlo", ClientId: "7sc1qltkqobo3ddqsk4542dg2h" });
+// L'indirizzo "classico" risponde dal browser; quello nuovo (the-mind-api.edilkamin.com) al momento no.
+const API = "https://fxtj7xkgc6.execute-api.eu-central-1.amazonaws.com/prod/";
+const POLL_MS = 8000;
+const PHASES = { 0: "Spenta", 1: "In accensione", 2: "Accesa", 3: "In spegnimento", 4: "Raffreddamento", 5: "Allarme", 6: "Pulizia finale" };
+const $ = id => document.getElementById(id);
+
+const store = {
+  get(k) { try { return localStorage.getItem("stufa." + k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem("stufa." + k, v); } catch {} },
+  del(k) { try { localStorage.removeItem("stufa." + k); } catch {} },
+};
+
+let info = null;          // ultimo device info dal cloud
+let pending = {};         // comandi inviati non ancora confermati: key -> {value, until}
+let pollTimer = null, busy = false;
+
+/* ---------- Autenticazione ---------- */
+function currentUser() { return POOL.getCurrentUser(); }
+
+function getToken() {
+  return new Promise((resolve, reject) => {
+    const user = currentUser();
+    if (!user) return reject(new Error("not_logged"));
+    user.getSession((err, session) => {
+      if (err || !session || !session.isValid()) return reject(err || new Error("session"));
+      resolve(session.getAccessToken().getJwtToken());
+    });
+  });
+}
+
+function login(email, password) {
+  return new Promise((resolve, reject) => {
+    const user = new AmazonCognitoIdentity.CognitoUser({ Username: email, Pool: POOL });
+    const auth = new AmazonCognitoIdentity.AuthenticationDetails({ Username: email, Password: password });
+    user.authenticateUser(auth, { onSuccess: resolve, onFailure: reject,
+      newPasswordRequired: () => reject(new Error("Serve cambiare la password dall'app The Mind")) });
+  });
+}
+
+function normMac(m) { return m.trim().toLowerCase().replace(/[^0-9a-f]/g, ""); }
+
+/* ---------- Chiamate al cloud ---------- */
+async function call(method, path, body, { timeout = 15000 } = {}) {
+  const token = await getToken();
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeout);
+  try {
+    const r = await fetch(API + path, { method, signal: ctl.signal,
+      headers: { Authorization: "Bearer " + token, ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const txt = await r.text();
+    try { return JSON.parse(txt); } catch { return txt; }
+  } finally { clearTimeout(t); }
+}
+
+const mac = () => store.get("mac");
+
+// Il cloud manda alcune parti come {type:"Buffer", data:[...]} compresse in gzip: le decomprimiamo.
+async function gunzip(bytes) {
+  const stream = new Blob([new Uint8Array(bytes)]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return JSON.parse(await new Response(stream).text());
+}
+async function decode(o) {
+  if (!o || typeof o !== "object") return o;
+  if (o.type === "Buffer" && Array.isArray(o.data)) return decode(await gunzip(o.data));
+  if (Array.isArray(o)) return Promise.all(o.map(decode));
+  const out = {};
+  for (const [k, v] of Object.entries(o)) out[k] = await decode(v);
+  return out;
+}
+const fetchInfo = async () => decode(await call("GET", `device/${mac()}/info`));
+
+// Il cloud inoltra il comando alla stufa e poi aspetta una conferma che spesso non arriva:
+// in quel caso risponde 504 "Device timeout" anche se il comando è stato applicato.
+// Per questo un 504 vale come "inviato" e la conferma vera la dà la lettura successiva dei dati.
+async function sendCommand(name, value, label) {
+  const body = { mac_address: mac(), name, value };
+  for (let i = 0; i < 3; i++) {
+    try { await call("PUT", "mqtt/command", body, { timeout: 25000 }); return true; }
+    catch (e) {
+      if (/HTTP 504/.test(e.message) || e.name === "AbortError") return true;
+      if (i < 2) { toast(`Cloud non raggiungibile, riprovo (${i + 2}/3)…`); await sleep(1500 * (i + 1)); }
+    }
+  }
+  toast(label + ": impossibile inviare il comando. Riprova tra poco.", true);
+  return false;
+}
+
+/* ---------- Lettura dati ---------- */
+const get = (o, path, d) => path.split(".").reduce((x, k) => (x == null ? x : x[k]), o) ?? d;
+
+function readState(i) {
+  const fansNumber = get(i, "nvm.installer_parameters.fans_number", 0);
+  const fans = [];
+  for (let n = 1; n <= Math.max(fansNumber, 0); n++) fans.push({ id: n, speed: get(i, `status.fans.fan_${n}_speed`, 0),
+    max: get(i, `nvm.oem_parameters.fan_${n}_max_level`, 5) });
+  return {
+    ...Object.fromEntries(fans.map(f => [`fan${f.id}`, f.speed])),
+    power: get(i, "status.commands.power", 0) ? 1 : 0,
+    phase: get(i, "status.state.operational_phase", null),
+    room: get(i, "status.temperatures.enviroment", null),
+    target: get(i, "nvm.user_parameters.enviroment_1_temperature", null),
+    level: get(i, "nvm.user_parameters.manual_power", null),
+    actual: get(i, "status.state.actual_power", null),
+    fans,
+    relax: !!get(i, "status.flags.is_relax_active", false),
+    chrono: !!get(i, "status.flags.is_crono_active", false),
+    standby: !!get(i, "nvm.user_parameters.is_standby_active", false),
+    airkare: !!get(i, "status.flags.is_airkare_active", false),
+    reserve: !!get(i, "status.flags.is_pellet_in_reserve", false),
+    autonomy: get(i, "status.pellet.autonomy_time", null),
+    alarms: (get(i, "nvm.alarms_log.alarms", []) || []).filter(a => a && a.timestamp > 0).sort((a, b) => a.timestamp - b.timestamp),
+    alarmsCount: get(i, "nvm.alarms_log.number", null),
+    alarmNow: get(i, "status.state.alarm_type", 0),
+    powerOns: get(i, "nvm.total_counters.power_ons", null),
+    levelHours: [1, 2, 3, 4, 5].map(l => get(i, `nvm.total_counters.p${l}_working_time`, 0)),
+    serviceLeft: get(i, "status.counters.service_time", null),
+    blackouts: get(i, "nvm.regeneration.blackout_counter", null),
+  };
+}
+
+// i comandi appena inviati prevalgono sul dato del cloud finché questo non si allinea (max 45 s)
+function withPending(s) {
+  const now = Date.now();
+  for (const [k, p] of Object.entries(pending)) {
+    if (String(s[k]) === String(p.value)) { p.confirmed = true; delete pending[k]; continue; }
+    if (now > p.until) { delete pending[k]; continue; }
+    s[k] = p.value;
+  }
+  return s;
+}
+
+/* ---------- Interfaccia ---------- */
+function render() {
+  if (!info) return;
+  const s = withPending(readState(info));
+  const on = s.power === 1;
+  const phaseTxt = PHASES[s.phase] ?? (on ? "Accesa" : "Spenta");
+  $("hero").className = "card hero " + (on ? "on" : "off");
+  $("phase").textContent = phaseTxt;
+  $("room").textContent = s.room != null ? `Stanza ${fmt(s.room)} °C` : "Stanza —";
+  const warn = (s.phase === 5 || s.alarmNow) ? [`⚠︎ Allarme codice ${s.alarmNow}`, "badge bad"] : s.reserve ? ["Pellet in riserva", "badge"] : null;
+  $("heroWarn").className = warn ? warn[1] : "badge hidden";
+  $("heroWarn").textContent = warn ? warn[0] : "";
+  const pb = $("powerBtn");
+  pb.textContent = on ? "Spegni" : "Accendi";
+  pb.classList.toggle("is-on", on);
+
+  $("target").textContent = s.target != null ? fmtTemp(s.target) : "—";
+
+  const seg = $("powerSeg");
+  if (!seg.children.length) for (let l = 1; l <= 5; l++) {
+    const b = document.createElement("button"); b.textContent = l; b.dataset.level = l;
+    b.onclick = () => act("level", l, "power_level", l, `Potenza ${l}`); seg.appendChild(b);
+  }
+  [...seg.children].forEach(b => b.classList.toggle("sel", Number(b.dataset.level) === Number(s.level)));
+
+  const fansEl = $("fans");
+  $("fansCard").classList.toggle("hidden", !s.fans.length);
+  if (fansEl.children.length !== s.fans.length) {
+    fansEl.innerHTML = "";
+    s.fans.forEach(f => {
+      // velocità manuali fino al massimo previsto dal costruttore per quella ventola, 6 = automatica
+      const opts = [...Array.from({ length: f.max }, (_, k) => [k + 1, String(k + 1)]), [6, "Auto"]];
+      const wrap = document.createElement("div"); wrap.className = "fan";
+      wrap.innerHTML = `<div class="fan-name">Ventola ${f.id}</div><div class="seg" style="grid-template-columns:repeat(${opts.length},1fr)"></div>`;
+      const sg = wrap.querySelector(".seg");
+      opts.forEach(([v, t]) => {
+        const b = document.createElement("button"); b.textContent = t; b.dataset.v = v;
+        b.onclick = () => act(`fan${f.id}`, v, `fan_${f.id}_speed`, v, `Ventola ${f.id}: ${t}`);
+        sg.appendChild(b);
+      });
+      fansEl.appendChild(wrap);
+    });
+  }
+  s.fans.forEach((f, idx) => {
+    const v = pending[`fan${f.id}`] ? pending[`fan${f.id}`].value : f.speed;
+    [...fansEl.children[idx].querySelectorAll("button")].forEach(b => b.classList.toggle("sel", Number(b.dataset.v) === Number(v)));
+  });
+
+  document.querySelectorAll(".toggle").forEach(t => t.classList.toggle("on", !!s[t.dataset.key]));
+
+  $("pellet").textContent = s.reserve ? "In riserva" : "OK";
+  $("pelletTile").className = "tile" + (s.reserve ? " warn" : "");
+  $("autonomy").textContent = fmtAutonomy(s.autonomy);
+  $("actualPower").textContent = s.actual != null ? s.actual : "—";
+  const active = s.phase === 5 || s.alarmNow;
+  $("alarmCount").textContent = active ? `In corso (codice ${s.alarmNow})` : (s.alarmsCount ? `${s.alarmsCount} passati` : "Nessuno");
+  $("alarmTile").className = "tile" + (active ? " bad" : "");
+  $("alarms").innerHTML = s.alarms.slice(-3).reverse().map(a =>
+    `<li>${new Date(a.timestamp * 1000).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })} · codice ${a.type}</li>`).join("");
+
+  renderPellet(s);
+  renderHistory(s);
+}
+
+/* ---------- Registro attività ---------- */
+// Confronta ogni lettura con la precedente e annota cosa è cambiato; annota anche i comandi dell'app.
+const eventsGet = () => { try { return JSON.parse(store.get("events") || "[]"); } catch { return []; } };
+function logEvent(kind, icon, text, sub = "") {
+  const ev = eventsGet();
+  ev.push({ t: Date.now(), kind, icon, text, sub });
+  store.set("events", JSON.stringify(ev.slice(-500)));
+}
+const appSent = {};   // chiave -> valore inviato dall'app di recente, per distinguere i cambi fatti dal telecomando
+
+function trackChanges(s) {
+  const snap = { phase: s.phase, target: s.target, level: s.level, relax: s.relax, chrono: s.chrono, standby: s.standby,
+    airkare: s.airkare, reserve: s.reserve, alarm: s.alarmNow, powerOns: s.powerOns };
+  let prev = null;
+  try { prev = JSON.parse(store.get("lastSeen") || "null"); } catch {}
+  store.set("lastSeen", JSON.stringify(snap));
+  if (!prev) return;
+  const who = (key, val) => (appSent[key] !== undefined && String(appSent[key]) === String(val)) ? "dall'app" : "dal telecomando o da un'altra app";
+
+  if (prev.phase !== snap.phase && snap.phase != null) {
+    const icons = { 0: "⚪", 1: "🔥", 2: "🔥", 3: "🌙", 4: "❄️", 5: "⚠️", 6: "🧹" };
+    logEvent("power", icons[snap.phase] || "•", PHASES[snap.phase] ?? `Fase ${snap.phase}`,
+      snap.phase === 1 || snap.phase === 3 ? who("power", snap.phase === 1 ? 1 : 0) : "");
+  }
+  // accensioni avvenute mentre l'app era chiusa: il contatore è salito più di quanto visto
+  if (prev.powerOns != null && snap.powerOns > prev.powerOns && !(prev.phase === 0 && snap.phase >= 1 && snap.powerOns - prev.powerOns === 1)) {
+    const n = snap.powerOns - prev.powerOns;
+    logEvent("power", "🔥", `${n} accension${n > 1 ? "i" : "e"} mentre l'app era chiusa`, "rilevate dal contatore della stufa");
+  }
+  if (prev.target !== snap.target && snap.target != null)
+    logEvent("change", "🌡️", `Temperatura ${fmtTemp(snap.target)} °C`, who("target", snap.target));
+  if (prev.level !== snap.level && snap.level != null)
+    logEvent("change", "⚡", `Potenza ${snap.level}`, who("level", snap.level));
+  for (const [k, name] of [["relax", "Relax"], ["chrono", "Chrono"], ["standby", "Standby"], ["airkare", "Airkare"]])
+    if (prev[k] !== snap[k]) logEvent("change", "⚙️", `${name} ${snap[k] ? "attivato" : "disattivato"}`, who(k, snap[k]));
+  if (!prev.reserve && snap.reserve) logEvent("power", "🟡", "Pellet in riserva");
+  if (prev.reserve && !snap.reserve) logEvent("change", "🟢", "Pellet di nuovo sopra la riserva");
+  if (!prev.alarm && snap.alarm) logEvent("power", "⚠️", `Allarme codice ${snap.alarm}`);
+}
+
+let logFilter = "all";
+function renderLog() {
+  const ev = eventsGet().filter(e => logFilter === "all" || e.kind === logFilter).reverse().slice(0, 150);
+  let day = "", html = "";
+  for (const e of ev) {
+    const d = new Date(e.t).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+    if (d !== day) { day = d; html += `<li class="day">${d}</li>`; }
+    html += `<li class="ev"><time>${new Date(e.t).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</time><span>${e.icon}</span><span>${e.text}${e.sub ? `<small>${e.sub}</small>` : ""}</span></li>`;
+  }
+  $("eventLog").innerHTML = html || `<li class="ev"><time></time><span></span><span>Nessun evento ancora<small>Il registro parte da oggi</small></span></li>`;
+}
+$("logFilter").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  logFilter = b.dataset.f;
+  [...$("logFilter").children].forEach(x => x.classList.toggle("sel", x === b));
+  renderLog();
+};
+
+/* ---------- Schermate ---------- */
+function showView(v) {
+  const status = v === "status";
+  $("viewControls").classList.toggle("hidden", status);
+  $("viewStatus").classList.toggle("hidden", !status);
+  $("backBtn").classList.toggle("hidden", !status);
+  $("statusBtn").classList.toggle("hidden", status);
+  $("title").textContent = status ? "Stato" : "Stufa";
+  $("menu").classList.add("hidden");
+  window.scrollTo(0, 0);
+  if (status) renderLog();
+}
+$("statusBtn").onclick = () => showView("status");
+$("backBtn").onclick = () => showView("controls");
+
+/* ---------- Consumo pellet ---------- */
+// Ogni carico salva kg e ore di funzionamento totali della stufa in quel momento.
+// Consumo medio = kg caricati prima dell'ultimo carico / ore lavorate dal primo all'ultimo carico
+// (si assume che a ogni carico il serbatoio sia a un livello simile).
+const loadsGet = () => { try { return JSON.parse(store.get("loads") || "[]"); } catch { return []; } };
+const loadsSet = l => store.set("loads", JSON.stringify(l));
+const totalHours = s => s.levelHours.reduce((a, b) => a + b, 0);
+const kgFmt = v => `${Number(v).toLocaleString("it-IT", { maximumFractionDigits: 1 })} kg`;
+const seasonStart = d => new Date(d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1, 8, 1); // da settembre
+
+function pelletStats(loads, hoursNow) {
+  const withH = loads.filter(l => l.h != null);
+  let rate = null;
+  if (withH.length >= 2) {
+    const first = withH[0], last = withH[withH.length - 1];
+    const hours = last.h - first.h;
+    const kg = withH.slice(0, -1).reduce((a, l) => a + l.kg, 0);
+    if (hours > 0) rate = kg / hours;
+  }
+  const last = loads[loads.length - 1];
+  let left = null, leftHours = null;
+  if (rate && last && last.h != null && hoursNow != null) {
+    left = Math.max(0, last.kg - rate * (hoursNow - last.h));
+    leftHours = left / rate;
+  }
+  const now = new Date();
+  const month = loads.filter(l => { const d = new Date(l.t); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+  const season = loads.filter(l => new Date(l.t) >= seasonStart(now));
+  const sum = arr => arr.reduce((a, l) => a + l.kg, 0);
+  const cost = arr => arr.reduce((a, l) => a + (l.price && l.bagKg ? (l.kg / l.bagKg) * l.price : 0), 0);
+  return { rate, left, leftHours, monthKg: sum(month), seasonKg: sum(season), seasonCost: cost(season) };
+}
+
+function renderPellet(s) {
+  const loads = loadsGet();
+  const st = pelletStats(loads, info ? totalHours(s) : null);
+  $("pRate").textContent = st.rate ? `${st.rate.toLocaleString("it-IT", { maximumFractionDigits: 2 })} kg/h` : "—";
+  $("pLeft").textContent = st.left != null ? `${kgFmt(st.left)} · ~${Math.round(st.leftHours)} h` : "—";
+  $("pLeftTile").className = "tile" + (s.reserve || (st.left != null && st.left < 3) ? " warn" : "");
+  $("pMonth").textContent = st.monthKg ? kgFmt(st.monthKg) : "—";
+  $("pSeason").textContent = st.seasonKg ? kgFmt(st.seasonKg) + (st.seasonCost ? ` · ${st.seasonCost.toLocaleString("it-IT", { style: "currency", currency: "EUR" })}` : "") : "—";
+  $("loads").innerHTML = loads.length
+    ? loads.slice(-8).reverse().map(l => `<li data-t="${l.t}"><span>${new Date(l.t).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}</span><span>${kgFmt(l.kg)} ✕</span></li>`).join("")
+    : `<li><span>Nessun carico registrato</span><span></span></li>`;
+}
+
+function openLoadForm() {
+  const bagKg = Number(store.get("bagKg") || 15);
+  $("bagKg").value = bagKg;
+  $("bagPrice").value = store.get("bagPrice") || "";
+  $("loadKg").value = bagKg;
+  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  $("loadWhen").value = d.toISOString().slice(0, 16);
+  [...$("bagSeg").children].forEach(b => b.classList.toggle("sel", b.dataset.bags === "1"));
+  $("loadForm").classList.remove("hidden"); $("loadBtn").classList.add("hidden");
+}
+function closeLoadForm() { $("loadForm").classList.add("hidden"); $("loadBtn").classList.remove("hidden"); }
+
+$("loadBtn").onclick = openLoadForm;
+$("loadCancel").onclick = closeLoadForm;
+$("bagSeg").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  [...$("bagSeg").children].forEach(x => x.classList.toggle("sel", x === b));
+  $("loadKg").value = Number(b.dataset.bags) * Number($("bagKg").value || 15);
+};
+$("bagKg").oninput = () => { const sel = $("bagSeg").querySelector(".sel"); if (sel) $("loadKg").value = Number(sel.dataset.bags) * Number($("bagKg").value || 15); };
+$("loadKg").oninput = () => [...$("bagSeg").children].forEach(x => x.classList.remove("sel"));
+$("loadForm").onsubmit = e => {
+  e.preventDefault();
+  const kg = Number($("loadKg").value), bagKg = Number($("bagKg").value) || 15, price = Number($("bagPrice").value) || null;
+  if (!(kg > 0)) return;
+  store.set("bagKg", bagKg); if (price) store.set("bagPrice", price); else store.del("bagPrice");
+  const t = $("loadWhen").value ? new Date($("loadWhen").value).getTime() : Date.now();
+  // le ore di funzionamento si possono legare solo a un carico "adesso"
+  const recent = Math.abs(Date.now() - t) < 6 * 3600e3;
+  const s = info ? readState(info) : null;
+  const loads = loadsGet();
+  loads.push({ t, kg, bagKg, price, h: recent && s ? totalHours(s) : null });
+  loads.sort((a, b) => a.t - b.t);
+  loadsSet(loads);
+  closeLoadForm(); toast(`Carico di ${kgFmt(kg)} registrato`);
+  if (info) render();
+};
+$("loads").onclick = e => {
+  const li = e.target.closest("li[data-t]"); if (!li) return;
+  if (!confirm("Eliminare questo carico?")) return;
+  loadsSet(loadsGet().filter(l => String(l.t) !== li.dataset.t));
+  if (info) render();
+};
+
+/* ---------- Storico ---------- */
+// Diario: un'istantanea dei contatori per ogni lettura in cui cambiano, tenuta solo su questo telefono.
+function recordSnapshot(s) {
+  if (s.powerOns == null) return;
+  const hours = s.levelHours.reduce((a, b) => a + b, 0);
+  let log = [];
+  try { log = JSON.parse(store.get("diary") || "[]"); } catch {}
+  const last = log[log.length - 1];
+  if (!last || last.on !== s.powerOns || last.h !== hours) {
+    log.push({ t: Date.now(), on: s.powerOns, h: hours });
+    store.set("diary", JSON.stringify(log.slice(-1000)));
+  }
+  return log;
+}
+
+function renderHistory(s) {
+  const log = recordSnapshot(s) || [];
+  const hours = s.levelHours.reduce((a, b) => a + b, 0);
+  $("powerOns").textContent = s.powerOns ?? "—";
+  $("totalHours").textContent = hours ? `${hours} h` : "—";
+  $("service").textContent = s.serviceLeft != null ? `${s.serviceLeft} h` : "—";
+  $("serviceTile").className = "tile" + (s.serviceLeft != null && s.serviceLeft < 100 ? " warn" : "");
+  $("blackouts").textContent = s.blackouts ?? "—";
+
+  const max = Math.max(...s.levelHours, 1);
+  $("levelBars").innerHTML = s.levelHours.map((h, idx) =>
+    `<div class="bar"><span>P${idx + 1}</span><div class="track"><div class="fill" style="width:${(h / max) * 100}%"></div></div><span class="h">${h} h</span></div>`).join("");
+
+  // differenze tra istantanee consecutive, raggruppate per giorno
+  const days = new Map();
+  for (let k = 1; k < log.length; k++) {
+    const dOn = log[k].on - log[k - 1].on, dH = log[k].h - log[k - 1].h;
+    if (dOn <= 0 && dH <= 0) continue;
+    const day = new Date(log[k].t).toLocaleDateString("it-IT", { weekday: "short", day: "2-digit", month: "2-digit" });
+    const d = days.get(day) || { on: 0, h: 0 };
+    d.on += Math.max(dOn, 0); d.h += Math.max(dH, 0); days.set(day, d);
+  }
+  const rows = [...days.entries()].reverse().slice(0, 14);
+  $("diary").innerHTML = rows.length
+    ? rows.map(([day, d]) => `<li><span>${day}</span><span>${d.on ? `${d.on} accension${d.on > 1 ? "i" : "e"}` : ""}${d.on && d.h ? " · " : ""}${d.h ? `${d.h} h` : ""}</span></li>`).join("")
+    : `<li><span>Ancora vuoto</span><span>dal ${new Date(log[0]?.t || Date.now()).toLocaleDateString("it-IT")}</span></li>`;
+}
+
+function fmt(v) { return Number(v).toLocaleString("it-IT", { maximumFractionDigits: 1 }); }
+function fmtTemp(v) { return Number(v).toLocaleString("it-IT", { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+function fmtAutonomy(a) {
+  if (a == null) return "—";
+  const min = Array.isArray(a) ? a[0] : Number(a);
+  if (!min) return "—";
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? (m ? `${h} h ${m} min` : `${h} h`) : `${m} min`;
+}
+
+async function act(key, value, cmd, cmdValue, label) {
+  const p = pending[key] = { value, until: Date.now() + 60000 };
+  appSent[key] = value;
+  render();
+  toast(label + " · invio…");
+  if (!(await sendCommand(cmd, cmdValue, label))) {
+    if (pending[key] === p) delete pending[key];
+    logEvent("cmd", "✗", label, "non inviato: cloud non raggiungibile"); render(); return;
+  }
+  // rilegge la stufa finché il valore non coincide (la conferma arriva di solito in 5–20 s)
+  const t0 = Date.now();
+  const confirmed = () => {
+    toast(label + " ✓");
+    logEvent("cmd", "✓", label, `confermato dalla stufa in ${Math.round((Date.now() - t0) / 1000)} s`);
+    if (!$("viewStatus").classList.contains("hidden")) renderLog();
+  };
+  for (const wait of [3000, 6000, 10000, 15000, 20000]) {
+    await sleep(wait);
+    if (!p.confirmed && pending[key] === p) await refresh();
+    if (p.confirmed) return confirmed();
+    if (pending[key] !== p) return;               // superato da un comando più recente
+  }
+  if (pending[key] === p) {
+    delete pending[key]; render();
+    toast(label + ": la stufa non l'ha applicato. Riprova.", true);
+    logEvent("cmd", "✗", label, "la stufa non l'ha applicato");
+  }
+}
+
+/* ---------- Aggiornamento periodico ---------- */
+async function refresh() {
+  if (busy) return; busy = true;
+  setSync("wait", "Aggiorno…");
+  try {
+    info = await fetchInfo();
+    trackChanges(readState(info));
+    render();
+    if (!$("viewStatus").classList.contains("hidden")) renderLog();
+    setSync("ok", "Aggiornato " + new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+  } catch (e) {
+    if (e.message === "not_logged" || e.message === "session") { showLogin(); return; }
+    setSync("err", "Cloud non raggiungibile");
+  } finally { busy = false; }
+}
+
+function setSync(kind, text) { $("syncDot").className = "dot " + (kind === "ok" ? "" : kind); $("syncText").textContent = text; }
+function startPolling() { stopPolling(); refresh(); pollTimer = setInterval(() => { if (!document.hidden) refresh(); }, POLL_MS); }
+function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+document.addEventListener("visibilitychange", () => { if (!document.hidden && pollTimer) refresh(); });
+
+let toastTimer;
+function toast(msg, bad = false) {
+  const t = $("toast"); t.textContent = msg; t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.className = ""), bad ? 5000 : 2200);
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- Eventi ---------- */
+$("powerBtn").onclick = () => {
+  const on = withPending(readState(info || {})).power === 1;
+  if (on && !confirm("Spegnere la stufa?")) return;
+  act("power", on ? 0 : 1, "power", on ? 0 : 1, on ? "Spegnimento inviato" : "Accensione inviata");
+};
+let tempDebounce;
+// passi da 0,5 °C come il telecomando; più tocchi rapidi diventano un solo comando
+function changeTemp(d) {
+  const cur = Number(withPending(readState(info || {})).target ?? 20);
+  const v = Math.min(30, Math.max(14, Math.round((cur + d) * 2) / 2));
+  pending.target = { value: v, until: Date.now() + 45000 }; render();
+  clearTimeout(tempDebounce);
+  tempDebounce = setTimeout(() => act("target", v, "enviroment_1_temperature", v, `Temperatura ${fmtTemp(v)} °C`), 900);
+}
+$("tempUp").onclick = () => changeTemp(+0.5);
+$("tempDown").onclick = () => changeTemp(-0.5);
+document.querySelectorAll(".toggle").forEach(t => t.onclick = () => {
+  const cur = !!withPending(readState(info || {}))[t.dataset.key];
+  const name = t.querySelector("div").firstChild.textContent.trim();
+  act(t.dataset.key, !cur, t.dataset.cmd, !cur, `${name} ${!cur ? "attivato" : "disattivato"}`);
+});
+$("menuBtn").onclick = () => $("menu").classList.toggle("hidden");
+$("refreshBtn").onclick = () => { $("menu").classList.add("hidden"); refresh(); };
+$("resetAlarmBtn").onclick = async () => { $("menu").classList.add("hidden"); if (confirm("Inviare il reset allarme alla stufa?")) await sendCommand("alarm_reset", true, "Reset allarme"); };
+$("logoutBtn").onclick = () => { if (!confirm("Uscire dall'account?")) return; const u = currentUser(); if (u) u.signOut(); stopPolling(); info = null; showLogin(); };
+
+$("loginForm").onsubmit = async ev => {
+  ev.preventDefault();
+  const btn = $("loginBtn"); btn.disabled = true; btn.textContent = "Accesso…"; $("loginError").textContent = "";
+  try {
+    const m = normMac($("mac").value);
+    if (m.length !== 12) throw new Error("Il MAC deve avere 12 caratteri (es. aa:bb:cc:dd:ee:ff)");
+    await login($("email").value.trim(), $("password").value);
+    store.set("mac", m);
+    $("password").value = "";
+    showApp();
+  } catch (e) {
+    const msg = String(e && (e.message || e.code) || e);
+    $("loginError").textContent = /Incorrect|NotAuthorized|password/i.test(msg) ? "Email o password non corrette." : msg;
+  } finally { btn.disabled = false; btn.textContent = "Accedi"; }
+};
+
+function showLogin() {
+  stopPolling();
+  $("app").classList.add("hidden"); $("login").classList.remove("hidden");
+  $("mac").value = store.get("mac") ? store.get("mac").match(/../g).join(":") : "";
+}
+function showApp() { $("login").classList.add("hidden"); $("app").classList.remove("hidden"); startPolling(); }
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+currentUser() && mac() ? showApp() : showLogin();
+</script>
+</body>
+</html>
